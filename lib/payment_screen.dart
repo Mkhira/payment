@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_ios/in_app_purchase_ios.dart';
 import 'package:provider/provider.dart';
+import 'package:testpayment/in_purchase_state.dart';
 import 'package:testpayment/provider_model.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -13,13 +15,10 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  late ProviderModel _appProvider;
 
   @override
   void initState() {
-    final provider = Provider.of<ProviderModel>(context, listen: false);
-    _appProvider = provider;
-    inAppStream(provider);
+    inAppStream(InAppPurchaseCubit.get(context));
     super.initState();
   }
   inAppStream(provider) async {
@@ -28,34 +27,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   void dispose() {
     if (Platform.isIOS) {
-      var iosPlatformAddition = _appProvider.inAppPurchase
+      var iosPlatformAddition = InAppPurchaseCubit.get(context).inAppPurchase
           .getPlatformAddition<InAppPurchaseIosPlatformAddition>();
       iosPlatformAddition.setDelegate(null);
     }
-    _appProvider.subscription.cancel();
+    InAppPurchaseCubit.get(context).subscription.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<ProviderModel>(context);
 
     List<Widget> stack = [];
-    if (provider.queryProductError == null) {
+    if (InAppPurchaseCubit.get(context).queryProductError == null) {
       stack.add(
-        ListView(
-          children: [
-            _buildConnectionCheckTile(provider),
-            _buildProductList(provider),
-          ],
-        ),
+       BlocBuilder<InAppPurchaseCubit,InPurchaseState>(builder: (context,state){return  ListView(
+         children: [
+           _buildConnectionCheckTile(),
+           _buildProductList(),
+         ],
+       );}),
       );
     } else {
       stack.add(Center(
-        child: Text(provider.queryProductError!),
+        child: Text(InAppPurchaseCubit.get(context).queryProductError!),
       ));
     }
-    if (provider.purchasePending) {
+    if (InAppPurchaseCubit.get(context).purchasePending) {
       stack.add(
         Stack(
           children: [
@@ -81,14 +79,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Card _buildConnectionCheckTile(provider) {
-    if (provider.loading) {
+  Card _buildConnectionCheckTile() {
+    if (InAppPurchaseCubit.get(context).loading) {
       return Card(child: ListTile(title: const Text('Trying to connect...')));
     }
-    final Widget storeHeader = provider.notFoundIds.isNotEmpty
+    final Widget storeHeader = InAppPurchaseCubit.get(context).notFoundIds.isNotEmpty
         ? ListTile(
         leading: Icon(Icons.block,
-            color: provider.isAvailable
+            color: InAppPurchaseCubit.get(context).isAvailable
                 ? Colors.grey
                 : ThemeData.light().errorColor),
         title: Text('The store is unavailable'))
@@ -98,7 +96,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
     final List<Widget> children = <Widget>[storeHeader];
 
-    if (!provider.isAvailable) {
+    if (!InAppPurchaseCubit.get(context).isAvailable) {
       children.addAll([
         Divider(),
         ListTile(
@@ -112,19 +110,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Card(child: Column(children: children));
   }
 
-  Card _buildProductList(provider) {
-    if (provider.loading) {
+  Card _buildProductList() {
+    if (InAppPurchaseCubit.get(context).loading) {
       return Card(
           child: (ListTile(
               leading: CircularProgressIndicator(),
               title: Text('Fetching products...'))));
     }
-    if (!provider.isAvailable) {
+    if (!InAppPurchaseCubit.get(context).isAvailable) {
       return Card();
     }
     final ListTile productHeader = ListTile(title: Text('Products for Sale'));
     List<ListTile> productList = <ListTile>[];
-    if (provider.notFoundIds.isNotEmpty) {
+    if (InAppPurchaseCubit.get(context).notFoundIds.isNotEmpty) {
       productList.add(ListTile(
         title: Text('Products not found',
             style: TextStyle(color: ThemeData.light().errorColor)),
@@ -137,7 +135,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     Map<String, PurchaseDetails> purchasesIn =
     Map.fromEntries(purchases.map((PurchaseDetails purchase) {
       if (purchase.pendingCompletePurchase) {
-        provider.inAppPurchase.completePurchase(purchase);
+        InAppPurchaseCubit.get(context).inAppPurchase.completePurchase(purchase);
       }
       return MapEntry<String, PurchaseDetails>(purchase.productID, purchase);
     }));
@@ -153,7 +151,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
             trailing: previousPurchase != null
                 ? IconButton(
-                onPressed: () => provider.confirmPriceChange(context),
+                onPressed: () => InAppPurchaseCubit.get(context).confirmPriceChange(context),
                 icon: Icon(
                   Icons.check,
                   color: Colors.green,
@@ -161,7 +159,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ))
                 : TextButton(
               child: Text(productDetails.id == kConsumableId &&
-                  provider.consumables.length > 0
+                  InAppPurchaseCubit.get(context).consumables.length > 0
                   ? "Buy more\n${productDetails.price}"
                   : productDetails.price),
               style: TextButton.styleFrom(
@@ -176,7 +174,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   // verify the latest status of you your subscription by using server side receipt validation
                   // and update the UI accordingly. The subscription purchase status shown
                   // inside the app may not be accurate.
-                  final oldSubscription = provider.getOldSubscription(
+                  final oldSubscription = InAppPurchaseCubit.get(context).getOldSubscription(
                       productDetails, purchasesIn);
 
                   purchaseParam = GooglePlayPurchaseParam(
@@ -197,11 +195,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 }
 
                 if (productDetails.id == kConsumableId) {
-                  provider.inAppPurchase.buyConsumable(
+                  InAppPurchaseCubit.get(context).inAppPurchase.buyConsumable(
                       purchaseParam: purchaseParam,
                       autoConsume: kAutoConsume || Platform.isIOS);
                 } else {
-                  provider.inAppPurchase
+                  InAppPurchaseCubit.get(context).inAppPurchase
                       .buyNonConsumable(purchaseParam: purchaseParam);
                 }
 

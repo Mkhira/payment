@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:in_app_purchase_ios/in_app_purchase_ios.dart';
+import 'package:testpayment/in_purchase_state.dart';
 
 import 'payment_screen.dart';
 import 'provider_model.dart';
@@ -15,15 +16,12 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late ProviderModel _appProvider;
 
   @override
   void initState() {
-    final provider = Provider.of<ProviderModel>(context, listen: false);
-    _appProvider = provider;
 
     SchedulerBinding.instance!.addPostFrameCallback((_) async {
-      initInApp(provider);
+      initInApp(InAppPurchaseCubit.get(context));
     });
 
     super.initState();
@@ -35,11 +33,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     if (Platform.isIOS) {
-      var iosPlatformAddition = _appProvider.inAppPurchase
+      var iosPlatformAddition = InAppPurchaseCubit.get(context).inAppPurchase
           .getPlatformAddition<InAppPurchaseIosPlatformAddition>();
       iosPlatformAddition.setDelegate(null);
     }
-    _appProvider.subscription.cancel();
+    InAppPurchaseCubit.get(context).subscription.cancel();
     super.dispose();
   }
 
@@ -47,7 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<ProviderModel>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -68,86 +65,90 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         ],
       ),
-      body: ListView(
-        padding: EdgeInsets.all(8),
-        children: [
-          Text(
-            'Non Consumable:',
-            style: TextStyle(fontSize: 20),
-          ),
-          Text(
-            !provider.finishedLoad
-                ? ''
-                : provider.removeAds
-                ? 'You paid for removing Ads.'
-                : 'You have not paid for removing Ads.',
-            style: TextStyle(
-                color: provider.removeAds ? Colors.green : Colors.grey,
-                fontSize: 20),
-          ),
-          Container(
-            height: 30,
-          ),
-          Text(
-            'Silver Subscription:',
-            style: TextStyle(fontSize: 20),
-          ),
-          Text(
-            !provider.finishedLoad
-                ? ''
-                : provider.silverSubscription
-                ? 'You have Silver Subscription.'
-                : 'You have not paid for Silver Subscription.',
-            style: TextStyle(
-                color: provider.silverSubscription ? Colors.green : Colors.grey,
-                fontSize: 20),
-          ),
-          Container(
-            height: 30,
-          ),
-          Text(
-            'Gold Subscription:',
-            style: TextStyle(fontSize: 20),
-          ),
-          Text(
-            !provider.finishedLoad
-                ? ''
-                : provider.goldSubscription
-                ? 'You have Gold Subscription.'
-                : 'You have not paid for Gold Subscription.',
-            style: TextStyle(
-                color: provider.goldSubscription ? Colors.green : Colors.grey,
-                fontSize: 20),
-          ),
-          Container(
-            height: 30,
-          ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      body: BlocBuilder<InAppPurchaseCubit,InPurchaseState>(
+        builder: (context,state){
+          return ListView(
+            padding: EdgeInsets.all(8),
             children: [
-              Text('Purchased consumables:${provider.consumables.length}',
-                  style: TextStyle(fontSize: 20)),
-              _buildConsumableBox(provider),
+              Text(
+                'Non Consumable:',
+                style: TextStyle(fontSize: 20),
+              ),
+              Text(
+                !InAppPurchaseCubit.get(context).finishedLoad
+                    ? ''
+                    : InAppPurchaseCubit.get(context).removeAds
+                    ? 'You paid for removing Ads.'
+                    : 'You have not paid for removing Ads.',
+                style: TextStyle(
+                    color: InAppPurchaseCubit.get(context).removeAds ? Colors.green : Colors.grey,
+                    fontSize: 20),
+              ),
+              Container(
+                height: 30,
+              ),
+              Text(
+                'Silver Subscription:',
+                style: TextStyle(fontSize: 20),
+              ),
+              Text(
+                !InAppPurchaseCubit.get(context).finishedLoad
+                    ? ''
+                    : InAppPurchaseCubit.get(context).silverSubscription
+                    ? 'You have Silver Subscription.'
+                    : 'You have not paid for Silver Subscription.',
+                style: TextStyle(
+                    color: InAppPurchaseCubit.get(context).silverSubscription ? Colors.green : Colors.grey,
+                    fontSize: 20),
+              ),
+              Container(
+                height: 30,
+              ),
+              Text(
+                'Gold Subscription:',
+                style: TextStyle(fontSize: 20),
+              ),
+              Text(
+                !InAppPurchaseCubit.get(context).finishedLoad
+                    ? ''
+                    : InAppPurchaseCubit.get(context).goldSubscription
+                    ? 'You have Gold Subscription.'
+                    : 'You have not paid for Gold Subscription.',
+                style: TextStyle(
+                    color: InAppPurchaseCubit.get(context).goldSubscription ? Colors.green : Colors.grey,
+                    fontSize: 20),
+              ),
+              Container(
+                height: 30,
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Purchased consumables:${InAppPurchaseCubit.get(context).consumables.length}',
+                      style: TextStyle(fontSize: 20)),
+                  _buildConsumableBox(),
+                ],
+              )
             ],
-          )
-        ],
+          );
+        },
       ),
     );
   }
 
-  Card _buildConsumableBox(provider) {
-    if (provider.loading) {
+  Card _buildConsumableBox() {
+    if (InAppPurchaseCubit.get(context).loading) {
       return Card(
           child: (ListTile(
               leading: CircularProgressIndicator(),
               title: Text('Fetching consumables...'))));
     }
-    if (!provider.isAvailable || provider.notFoundIds.contains(kConsumableId)) {
+    if (!InAppPurchaseCubit.get(context).isAvailable || InAppPurchaseCubit.get(context).notFoundIds.contains(kConsumableId)) {
       return Card();
     }
 
-    final List<Widget> tokens = provider.consumables.map<Widget>((String id) {
+    final List<Widget> tokens = InAppPurchaseCubit.get(context).consumables.map<Widget>((String id) {
       return GridTile(
         child: IconButton(
           icon: Icon(
@@ -157,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           splashColor: Colors.yellowAccent,
           onPressed: () {
-            provider.consume(id);
+            InAppPurchaseCubit.get(context).consume(id);
           },
         ),
       );

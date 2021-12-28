@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
@@ -8,6 +9,7 @@ import 'package:in_app_purchase_ios/in_app_purchase_ios.dart';
 import 'package:in_app_purchase_ios/store_kit_wrappers.dart';
 import 'package:flutter/foundation.dart';
 
+import 'in_purchase_state.dart';
 import 'store_class.dart';
 
 List<PurchaseDetails> purchases = [];
@@ -15,8 +17,8 @@ List<ProductDetails> products = [];
 const bool kAutoConsume = true;
 const String kConsumableId = 'consumable_product';
 const String kUpgradeId = 'non_consumable';
-const String kSilverSubscriptionId = 'silver_subscription';
-const String kGoldSubscriptionId = 'gold_subscription';
+const String kSilverSubscriptionId = 'three_month';
+const String kGoldSubscriptionId = 'one_year';
 const List<String> _kProductIds = <String>[
   kConsumableId,
   kUpgradeId,
@@ -24,7 +26,7 @@ const List<String> _kProductIds = <String>[
   kGoldSubscriptionId,
 ];
 
-class ProviderModel with ChangeNotifier {
+class InAppPurchaseCubit extends Cubit<InPurchaseState>  {
   final InAppPurchase inAppPurchase = InAppPurchase.instance;
   late StreamSubscription<List<PurchaseDetails>> subscription;
   List<String> notFoundIds = [];
@@ -34,6 +36,8 @@ class ProviderModel with ChangeNotifier {
   bool loading = true;
   String? queryProductError;
 
+  InAppPurchaseCubit() : super(InPurchaseStateInitial());
+ static InAppPurchaseCubit get(BuildContext context) => BlocProvider.of(context);
   Future<void> initInApp() async {
     final Stream<List<PurchaseDetails>> purchaseUpdated =
         inAppPurchase.purchaseStream;
@@ -79,35 +83,35 @@ class ProviderModel with ChangeNotifier {
       finishedLoad = true;
     });
 
-    notifyListeners();
+   emit(InPurchaseStateVerifyPreviousPurchases());
   }
 
   bool _removeAds = false;
   bool get removeAds => _removeAds;
   set removeAds(bool value) {
     _removeAds = value;
-    notifyListeners();
+    emit(InPurchaseStateRemoveAds());
   }
 
   bool _silverSubscription = false;
   bool get silverSubscription => _silverSubscription;
   set silverSubscription(bool value) {
     _silverSubscription = value;
-    notifyListeners();
+    emit(InPurchaseStateSilverSubscription());
   }
 
   bool _goldSubscription = false;
   bool get goldSubscription => _goldSubscription;
   set goldSubscription(bool value) {
     _goldSubscription = value;
-    notifyListeners();
+    emit(InPurchaseStateGoldSubscription());
   }
 
   bool _finishedLoad = false;
   bool get finishedLoad => _finishedLoad;
   set finishedLoad(bool value) {
     _finishedLoad = value;
-    notifyListeners();
+    emit(InPurchaseStateFinishedLoad());
   }
 
   Future<void> initStoreInfo() async {
@@ -162,14 +166,14 @@ class ProviderModel with ChangeNotifier {
     consumables = consumableProd;
     purchasePending = false;
     loading = false;
-    notifyListeners();
+    emit(InPurchaseStateInitStoreInfo());
   }
 
   Future<void> consume(String id) async {
     await ConsumableStore.consume(id);
     final List<String> consumableProd = await ConsumableStore.load();
     consumables = consumableProd;
-    notifyListeners();
+    emit(InPurchaseStateConsume());
   }
 
   void showPendingUI() {

@@ -36,7 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.2
 #  purchases_flutter: ^3.8.0
   in_app_purchase: ^1.0.9
-  provider: ^6.0.1
+#  provider: ^6.0.1
+  flutter_bloc: ^8.0.0
+  rxdart: ^0.27.3
+
   shared_preferences: ^2.0.8
 dev_dependencies:
   flutter_test:

@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:provider/provider.dart';
 import 'home_screen.dart';
+import 'observer.dart';
 import 'payment_screen.dart';
 import 'provider_model.dart';
 
@@ -13,7 +15,12 @@ void main() {
     // as part of initializing the app.
     InAppPurchaseAndroidPlatformAddition.enablePendingPurchases();
   }
-  runApp(const MyApp());
+
+  BlocOverrides.runZoned(
+        () => runApp(const MyApp()),
+    blocObserver: AppBlocObserver(),
+  );
+  // runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -22,8 +29,8 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => ProviderModel(),
+    return BlocProvider(
+      create: (context) => InAppPurchaseCubit(),
       child: MaterialApp(
         title: 'Flutter Demo',
         theme: ThemeData(
